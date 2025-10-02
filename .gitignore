@@ -15,12 +15,15 @@ project.lock.json
 *.user
 *.userosscache
 *.sln.docstates
+appsettings.Development.json
+appsettings.Local.json
 
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
+Migrations/
 x64/
 x86/
 build/

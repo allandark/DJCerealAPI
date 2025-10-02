@@ -1,70 +1,123 @@
+using CerealAPI.src.Data;
+using CerealAPI.src.Repository;
+using CerealAPI.src.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
+using System.Text;
+using Microsoft.OpenApi.Models;
 
 namespace CerealAPI.src
 {
 
-
-
     class Program
     {
-            WebApplication webApp;
 
-            public Program(string[] args)
-            {
-                webApp = InitializeWebApp(args);
-            }
-            public static void Main(string[] args)
-            {
+    public static void Main(string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(args);
 
-                Program driver = new Program(args);
-                driver.Run();
-            
-            }
+        // Add services to the container.
+                
+        builder.Services.AddControllers();
+        builder.Services.AddTransient<Seed>();
+               
+        // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+        builder.Services.AddEndpointsApiExplorer();
 
-            public void Run()
+        builder.Services.AddSwaggerGen(options =>
+        {
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
-                // Configure the HTTP request pipeline.
-                if (webApp.Environment.IsDevelopment())
+                Name = "Authorization",
+                Type = SecuritySchemeType.ApiKey, 
+                Scheme = "Bearer",              
+                BearerFormat = "JWT",
+                In = ParameterLocation.Header,
+                Description = "Enter 'Bearer' followed by your JWT token."
+            });
+
+            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
                 {
-                    webApp.UseSwagger();
-                    webApp.UseSwaggerUI();
+
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        },
+                        In = ParameterLocation.Header,
+                        Name = "Authorization",
+                        Scheme = "Bearer"
+                    },
+
+                new List<string>()
                 }
+            });
+        });
 
-                webApp.UseHttpsRedirection();
-
-                webApp.UseAuthorization();
-
-                webApp.MapControllers();
-
-                webApp.Run();
-            }
+        var config = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: false)
+            .Build();
 
 
-            WebApplication InitializeWebApp(string[] args)
+        builder.Services.AddDbContext<AppDbContext>(options =>
+            options.UseMySql(
+            config.GetConnectionString("DefaultConnection"),
+            ServerVersion.AutoDetect(config.GetConnectionString("DefaultConnection"))
+        ));
+
+        builder.Services.AddScoped<IProductRepository, ProductRepository>();
+        builder.Services.AddScoped<IAuthService, AuthService>();
+
+        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options => options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["AppSettings:Issuer"],
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["AppSettings:Audience"],
+            ValidateLifetime = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["AppSettings:Token"]!)),
+            ValidateIssuerSigningKey = true,
+        });
+      
+        var webApp =  builder.Build();
+
+        // TODO: only run first time
+        if (args.Length > 0 && args[0].ToLower() == "seed")
+        {
+            using (var scope = webApp.Services.CreateScope())
             {
-                var builder = WebApplication.CreateBuilder(args);
-
-                // Add services to the container.
-
-                builder.Services.AddControllers();
-                // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-                builder.Services.AddEndpointsApiExplorer();
-                builder.Services.AddSwaggerGen();
-
-                builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-                   .AddNegotiate();
-
-                builder.Services.AddAuthorization(options =>
-                {
-                    // By default, all incoming requests will be authorized according to the default policy.
-                    options.FallbackPolicy = options.DefaultPolicy;
-                });
-
-                return builder.Build();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                Seed.SeedDatabase(context, "data\\Cereal.csv");
             }
-        };
+        }
 
+        // Configure the HTTP request pipeline.
+        if (webApp.Environment.IsDevelopment())
+        {
+            webApp.UseSwagger(c =>
+            {
+                c.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi2_0;
+            });
+            webApp.UseSwaggerUI();
+        }
+        
+        webApp.UseHttpsRedirection();
 
+        webApp.UseAuthentication();
+        webApp.UseAuthorization();
 
+        webApp.MapControllers();
 
+        webApp.Run();
+
+        }
+    };
 }
