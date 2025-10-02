@@ -8,25 +8,7 @@ namespace CerealAPI.src.Repository
     public class ProductRepository : IProductRepository
     {
         private readonly AppDbContext _context;
-
-        // TODO imlpement
-        Dictionary<string, Func<ProductFilterEntity, List<Product>, List<Product>>> FilterTable = 
-            new Dictionary<string, Func<ProductFilterEntity, List<Product>, List<Product>>>
-        {
-            {   "=", 
-                (filter, products ) =>
-                {
-                    return products.Where(p =>
-                    {
-                        var prop = typeof(Product).GetProperty(filter.Key);
-                        if (prop == null) return false;
-                        var value = prop.GetValue(p);                        
-                        return value != null && value.Equals(filter.Value );                       
-                    }).ToList();                    
-                }                            
-            }
-        };
-
+      
 
         public ProductRepository(AppDbContext context)
         {
@@ -36,7 +18,13 @@ namespace CerealAPI.src.Repository
         
 
 
-        // CRUD Definitions
+        //--- CRUD Definitions ---//
+
+        /// <summary>
+        /// Implements interface
+        /// </summary>
+        /// <param name="product"></param>
+        /// <returns></returns>
         public Product Create(Product product)
         {
             try
@@ -54,6 +42,11 @@ namespace CerealAPI.src.Repository
 
         }
 
+        /// <summary>
+        /// Implements interface
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         public bool Delete(int id)
         {
             try
@@ -70,16 +63,32 @@ namespace CerealAPI.src.Repository
             }            
         }
 
+
+        /// <summary>
+        /// Implements interface
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         public Product Get(int id)
         {
             return _context.Products.Where(p => p.Id == id).FirstOrDefault();
         }
 
+
+        /// <summary>
+        /// Implements interface
+        /// </summary>
+        /// <returns></returns>
         public ICollection<Product> GetAll()
         {
             return _context.Products.ToList();
         }
 
+        /// <summary>
+        /// Implements interface
+        /// </summary>
+        /// <param name="filter"></param>
+        /// <returns></returns>
         public ICollection<Product> GetAllFiltered(List<ProductFilterEntity> filter)
         {
             List<Product> products = null;
@@ -88,7 +97,7 @@ namespace CerealAPI.src.Repository
                 products = _context.Products.ToList();
                 foreach (var entry in filter)
                 {
-                    products = FilterTable[entry.Operator].Invoke(entry, products);
+                    products = Utils.FilterTable[entry.Operator].Invoke(entry, products);
                 }
             }
             catch (Exception e)
@@ -98,11 +107,21 @@ namespace CerealAPI.src.Repository
             return products;
         }
 
+        /// <summary>
+        /// Implements interface
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         public bool Exists(int id)
         {
             return _context.Products.Any(p => p.Id == id);
         }
 
+        /// <summary>
+        /// Imlpements interface
+        /// </summary>
+        /// <param name="product"></param>
+        /// <returns></returns>
         public Product Update(Product product)
         { 
             try

@@ -14,6 +14,10 @@ namespace CerealAPI.src
     class Program
     {
 
+    /// <summary>
+    /// Entry point for application
+    /// </summary>
+    /// <param name="args"></param>
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -23,9 +27,10 @@ namespace CerealAPI.src
         builder.Services.AddControllers();
         builder.Services.AddTransient<Seed>();
                
-        // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+        
         builder.Services.AddEndpointsApiExplorer();
 
+        // Setup swagger for Authentication
         builder.Services.AddSwaggerGen(options =>
         {
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -64,16 +69,18 @@ namespace CerealAPI.src
             .AddJsonFile("appsettings.json", optional: false)
             .Build();
 
-
+        // Build Database
         builder.Services.AddDbContext<AppDbContext>(options =>
             options.UseMySql(
             config.GetConnectionString("DefaultConnection"),
             ServerVersion.AutoDetect(config.GetConnectionString("DefaultConnection"))
         ));
 
+        // Dependency injection
         builder.Services.AddScoped<IProductRepository, ProductRepository>();
         builder.Services.AddScoped<IAuthService, AuthService>();
 
+        // Authentication setup
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options => options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -89,7 +96,7 @@ namespace CerealAPI.src
       
         var webApp =  builder.Build();
 
-        // TODO: only run first time
+        // If args == seed, populate the database
         if (args.Length > 0 && args[0].ToLower() == "seed")
         {
             using (var scope = webApp.Services.CreateScope())
@@ -116,6 +123,7 @@ namespace CerealAPI.src
 
         webApp.MapControllers();
 
+        // Run web app
         webApp.Run();
 
         }

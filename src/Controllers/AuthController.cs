@@ -13,12 +13,21 @@ using System.Threading.Tasks;
 
 namespace CerealAPI.src.Controllers
 {
+    /// <summary>
+    /// Authentication controller for user registration and login. 
+    /// TODO: make the registration reguire authentication and let the seed have an admin account ready.  
+    /// </summary>
+    /// <param name="authService"></param>
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController(IAuthService authService) : ControllerBase
-    {
-        public static User user = new User();
+    {        
 
+        /// <summary>
+        /// Register endpoint
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
         [HttpPost("register")]
         public async Task<ActionResult<User>>Register(UserDTO request)
         {
@@ -30,6 +39,12 @@ namespace CerealAPI.src.Controllers
             return Ok(user);
         }
 
+
+        /// <summary>
+        /// Login endpoint
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
         [HttpPost("login")]
         public async Task<ActionResult<string>> Login(UserDTO request)
         {

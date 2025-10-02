@@ -1,43 +1,17 @@
 ﻿namespace CerealAPI.src.Models
 {
+
+    /// <summary>
+    /// Product factory for creating product objects and encapsulating the parsing logic
+    /// </summary>
     public class ProductFactory
     {
 
-        public static Dictionary<string, string> ManufacturerStrings = new Dictionary<string, string>()
-        {
-            { "american_home_food_products", "A" },
-            { "general_mills", "G" },
-            { "kelloggs", "K" },
-            { "nabisco", "N" },
-            { "post", "P" },
-            { "quaker_oats", "Q" },
-            { "ralston_purina", "R" },
-
-        };
-
-        public static Dictionary<string, string> TypeStrings = new Dictionary<string, string>
-        {
-            { "hot", "H"},
-            { "cold", "C"}
-        };
-
-        public static List<string> AcceptableManufactures = new List<string>
-        {
-            "A",
-            "G",
-            "K",
-            "N",
-            "P",
-            "Q",
-            "R"
-        };
-        public static List<string> AcceptableTypes = new List<string>
-        {
-            "H",
-            "C"
-        };
-
-
+        /// <summary>
+        /// Parses the csv row and creates a product object
+        /// </summary>
+        /// <param name="csv_row">Takes ';' csv row</param>
+        /// <returns></returns>
         static public Product CreateProduct(string csv_row)
         {
             var values = csv_row.Split(';');
@@ -45,8 +19,8 @@
             try
             {
                 p.Name = values[0];
-                p.Mfr = ParseChar(values[1], AcceptableManufactures);
-                p.Type = ParseChar(values[2], AcceptableTypes);
+                p.Mfr = ParseChar(values[1], Utils.AcceptableManufactures);
+                p.Type = ParseChar(values[2], Utils.AcceptableTypes);
                 p.Calories = ParseInt(values[3]);
                 p.Protien = ParseInt(values[4]);
                 p.Fat = ParseInt(values[5]);
@@ -70,6 +44,7 @@
             return p;
         }
 
+
         private static string ParseChar(string manu, List<string> acceptable_chars)
         {
             string res = "";
@@ -90,6 +65,12 @@
         }
 
 
+        /// <summary>
+        /// Parse string into int. Throws exception if failure.
+        /// </summary>
+        /// <param name="value_in"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         private static int ParseInt(string value_in)
         {
             int valueOut = 0;
@@ -102,6 +83,14 @@
 
             return valueOut;
         }
+
+
+        /// <summary>
+        /// Parse string into float. Throws exception if failure
+        /// </summary>
+        /// <param name="value_in"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         private static float ParseFloat(string value_in)
         {
             float valueOut = 0;
@@ -115,6 +104,13 @@
             return valueOut;
         }
 
+
+        /// <summary>
+        /// Removes all the '.' chars except the decimal delimiter
+        /// </summary>
+        /// <param name="str"></param>
+        /// <param name="delim"></param>
+        /// <returns></returns>
         private static string RemoveLeadingChars(string str, string delim)
         {
             int last_index = str.LastIndexOf(delim);

@@ -1,5 +1,6 @@
 ﻿using CerealAPI.src.Data;
 using CerealAPI.src.Models;
+using CerealAPI.src.Repository;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,10 +8,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CerealAPI.src
 {
+    /// <summary>
+    /// Utility class
+    /// </summary>
     public class Utils
     {
 
-
+        /// <summary>
+        /// String representations of filter operations 
+        /// </summary>
         static public string[] FilterOps = new string[]
         {
             "=",
@@ -21,6 +27,9 @@ namespace CerealAPI.src
             "!="
         };
 
+        /// <summary>
+        /// Dictionary to convert query string into product member name
+        /// </summary>
         static public Dictionary<string, string> ProductMemberNames = new Dictionary<string, string>
         {
             {"name","Name" },
@@ -41,13 +50,224 @@ namespace CerealAPI.src
             {"rating","Rating" }
         };
 
-      
+
+        /// <summary>
+        /// Dictionary for converting query represention into db convention
+        /// </summary>
+        public static Dictionary<string, string> ManufacturerStrings = new Dictionary<string, string>()
+        {
+            { "american_home_food_products", "A" },
+            { "general_mills", "G" },
+            { "kelloggs", "K" },
+            { "nabisco", "N" },
+            { "post", "P" },
+            { "quaker_oats", "Q" },
+            { "ralston_purina", "R" },
+
+        };
 
 
+        /// <summary>
+        /// Dictionary for converting query represention into db convention
+        /// </summary>
+        public static Dictionary<string, string> TypeStrings = new Dictionary<string, string>
+        {
+            { "hot", "H"},
+            { "cold", "C"}
+        };
+
+        /// <summary>
+        /// List of acceptable manufacturer letters
+        /// </summary>
+        public static List<string> AcceptableManufactures = new List<string>
+        {
+            "A",
+            "G",
+            "K",
+            "N",
+            "P",
+            "Q",
+            "R"
+        };
+
+        /// <summary>
+        /// List of acceptable types
+        /// </summary>
+        public static List<string> AcceptableTypes = new List<string>
+        {
+            "H",
+            "C"
+        };
 
 
+        /// <summary>
+        /// Dictionary containing the different operations to apply the a List<Product>
+        /// </summary>
+        static public Dictionary<string, Func<ProductFilterEntity, List<Product>, List<Product>>> FilterTable =
+            new Dictionary<string, Func<ProductFilterEntity, List<Product>, List<Product>>>
+        {
+            {   "=",
+                (filter, products ) =>
+                {
+                    return products.Where(p =>
+                    {
+                        var prop = typeof(Product).GetProperty(filter.Key);
+                        if (prop == null) return false;
+                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
+                        var value = prop.GetValue(p);
+                        return value != null && value == convertedFilterValue;
+                    }).ToList();
+                }
+            },
+                {   "!=",
+                (filter, products ) =>
+                {
+                    return products.Where(p =>
+                    {
+                        var prop = typeof(Product).GetProperty(filter.Key);
+                        if (prop == null) return false;
+                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
+                        var value = prop.GetValue(p);
+                        return value != null &&  value != convertedFilterValue;
+                    }).ToList();
+                }
+            },
+            {   "<=",
+                (filter, products ) =>
+                {
+                    return products.Where(p =>
+                    {
+                        var prop = typeof(Product).GetProperty(filter.Key);
+                        if (prop == null) return false;
+                        var value = prop.GetValue(p);
+                        if (value == null || filter.Value == null) return false;
+                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
+                        if (value is IComparable comparableValue && convertedFilterValue is IComparable comparableFilter)
+                            return comparableValue.CompareTo(convertedFilterValue) <= 0;
+                        return false;
+                    }).ToList();
+                }
+            },
+            {   "<",
+                (filter, products ) =>
+                {
+                    return products.Where(p =>
+                    {
+                        var prop = typeof(Product).GetProperty(filter.Key);
+                        if (prop == null) return false;
+                        var value = prop.GetValue(p);
+                        if (value == null || filter.Value == null) return false;
+                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
+                        if (value is IComparable comparableValue && convertedFilterValue is IComparable comparableFilter)
+                            return comparableValue.CompareTo(convertedFilterValue) < 0;
+                        return false;
+                    }).ToList();
+                }
+            },
+            {   ">=",
+                (filter, products ) =>
+                {
+                    return products.Where(p =>
+                    {
+                        var prop = typeof(Product).GetProperty(filter.Key);
+                        if (prop == null) return false;
+                        var value = prop.GetValue(p);
+                        if (value == null || filter.Value == null) return false;
+                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
+                        if (value is IComparable comparableValue && convertedFilterValue is IComparable comparableFilter)
+                            return comparableValue.CompareTo(convertedFilterValue) >= 0;
+                        return false;
+                    }).ToList();
+                }
+            },
+            {   ">",
+                (filter, products ) =>
+                {
+                    return products.Where(p =>
+                    {
+                        var prop = typeof(Product).GetProperty(filter.Key);
+                        if (prop == null) return false;
+                        var value = prop.GetValue(p);
+                        if (value == null || filter.Value == null) return false;
+                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
+                        if (value is IComparable comparableValue && convertedFilterValue is IComparable comparableFilter)
+                            return comparableValue.CompareTo(convertedFilterValue) > 0;
+                        return false;
+                    }).ToList();
+                }
+            }
+        };
 
-        static public List<string[]> ReadCSVFile(string path, char delim = ',')
+
+        /// <summary>
+        /// Splits the query string into filter elements
+        /// </summary>
+        /// <param name="query"></param>
+        /// <returns>List of filter entries</returns>
+        static public List<ProductFilterEntity> ParseQuery(string query)
+        {
+            List<ProductFilterEntity> filter = new List<ProductFilterEntity>();
+            if (query == null)
+            {
+                return filter;
+            }
+            var entreis = query.Split('&');
+            foreach (var entry in entreis)
+            {
+                foreach (var op in Utils.FilterOps)
+                {
+                    if (entry.Contains(op))
+                    {
+
+                        var values = entry.Split(op);
+                        string category = "";
+                        string value = values[1];
+                        if (ProductMemberNames.TryGetValue(values[0].ToLower(), out category))
+                        {
+                            if (category == "Mfr")
+                            {
+                                if (!ManufacturerStrings.TryGetValue(values[1].ToLower(), out value))
+                                {
+                                    Console.WriteLine(string.Format("Invalid manufacturer: {0}", value));
+                                    filter.Clear();
+                                    return filter;
+                                }
+                            }
+                            else if (category == "Type")
+                            {
+                                if (!TypeStrings.TryGetValue(values[1].ToLower(), out value))
+                                {
+                                    Console.WriteLine(string.Format("Invalid type: {0}", value));
+                                    filter.Clear();
+                                    return filter;
+                                }
+
+                            }
+                            filter.Add(new ProductFilterEntity(category, op, value));
+                        }
+                        else
+                        {
+                            Console.WriteLine(string.Format("Category does not exist: {0}!", values[0]));
+                            filter.Clear();
+                            return filter;
+                        }
+
+
+                    }
+                }
+
+            }
+            return filter;
+        }
+
+
+        /// <summary>
+        /// Reads a text file and splits it into lines TODO: Params
+        /// </summary>
+        /// <param name="path">Path to file</param>
+        /// <param name="delim"></param>
+        /// <returns>List of strings for each line</returns>
+        static public List<string[]> ReadFile(string path, char delim = ',')
         {
             List<string[]> rows = new List<string[]>();
             try
@@ -66,109 +286,7 @@ namespace CerealAPI.src
             }
             return rows;
         }
-
-        
-
-
-        public int ReadAll(AppDbContext context, string category, string value, out List<Product> productList)
-        {
-            productList = null;
-            IEnumerable<Product> products = new List<Product>();
-            try
-            {
-                var productsAll = context.Products.ToList();
-
-                    switch(category)
-                    {
-                        case "manufacturer":
-                            products = from p in productsAll
-                                       where p.Mfr == value.ToUpper()
-                                       select p;
-                            break;
-                        case "type":
-                            products = from p in productsAll
-                                       where p.Type == value.ToUpper()
-                                       select p;
-                            break;
-                        case "calories":
-                            products = from p in productsAll
-                                       where p.Calories == int.Parse(value)
-                                       select p;
-                            break;
-                        case "protien":
-                            products = from p in productsAll
-                                       where p.Protien == int.Parse(value)
-                                       select p;
-                            break;
-                        case "fat":
-                            products = from p in productsAll
-                                       where p.Fat == int.Parse(value)
-                                       select p;
-                            break;
-                        case "sodium":
-                            products = from p in productsAll
-                                       where p.Sodium == int.Parse(value)
-                                       select p;
-                            break;
-                        case "fiber":
-                            products = from p in productsAll
-                                       where p.Fiber == float.Parse(value)
-                                       select p;
-                            break;
-                        case "carbo":
-                            products = from p in productsAll
-                                       where p.Carbo == float.Parse(value)
-                                       select p;
-                            break;
-                        case "sugars":
-                            products = from p in productsAll
-                                       where p.Sugars == int.Parse(value)
-                                       select p;
-                            break;
-                        case "potass":
-                            products = from p in productsAll
-                                       where p.Potass == int.Parse(value)
-                                       select p;
-                            break;
-                        case "vitamins":
-                            products = from p in productsAll
-                                       where p.Vitamins == int.Parse(value)
-                                       select p;
-                            break;
-                        case "shelf":
-                            products = from p in productsAll
-                                       where p.Shelf == int.Parse(value)
-                                       select p;
-                            break;
-                        case "weight":
-                            products = from p in productsAll
-                                       where p.Weight == float.Parse(value)
-                                       select p;
-                            break;
-                        case "cups":
-                            products = from p in productsAll
-                                       where p.Cups == float.Parse(value)
-                                       select p;
-                            break;
-                        case "rating":
-                            products = from p in productsAll
-                                       where p.Rating == float.Parse(value)
-                                       select p;
-                            break;
-                    default:
-                        products = productsAll;
-                        break;
-                    } 
-                productList = products.ToList();
-                return StatusCodes.Status200OK;
-                
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-            return StatusCodes.Status500InternalServerError;
-        }
+       
 
       
     }

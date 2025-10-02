@@ -17,6 +17,7 @@ project.lock.json
 *.sln.docstates
 appsettings.Development.json
 appsettings.Local.json
+Docs/doxy
 
 # Build results
 [Dd]ebug/

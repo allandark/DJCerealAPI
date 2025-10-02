@@ -6,12 +6,28 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CerealAPI.src.Models
 {
+    /// <summary>
+    /// The product model stored on the database
+    /// </summary>
     public class Product
     {
+        /// <summary>
+        /// Primary Key
+        /// </summary>
         [Key] public int Id { get; set; }
+
+        /// <summary>
+        /// Product Name
+        /// </summary>
         public string Name { get; set; }
+
         public string Mfr { get; set; }
+
+        /// <summary>
+        /// Type
+        /// </summary>
         public string Type { get; set; }
+
         public int Calories { get; set; }
         public int Protien { get; set; }
         public int Fat { get; set; }

@@ -2,6 +2,9 @@
 
 namespace CerealAPI.src.Models
 {
+    /// <summary>
+    /// User model for database
+    /// </summary>
     public class User
     {
         [Key]

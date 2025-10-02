@@ -10,6 +10,12 @@ using System.Text;
 
 namespace CerealAPI.src.Services
 {
+
+    /// <summary>
+    /// Implements interface
+    /// </summary>
+    /// <param name="context"></param>
+    /// <param name="configuration"></param>
     public class AuthService(AppDbContext context, IConfiguration configuration) : IAuthService
     {
         public async Task<string> LoginAsync(UserDTO request)
@@ -27,6 +33,12 @@ namespace CerealAPI.src.Services
             return CreateToken(user);
         }
 
+
+        /// <summary>
+        /// Imlpements interface
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
         public async Task<User> RegisterAsync(UserDTO request)
         {
             if (await context.Users.AnyAsync(u => u.Username == request.Username)) 
@@ -48,6 +60,11 @@ namespace CerealAPI.src.Services
         
         }
 
+        /// <summary>
+        /// Creates a token for the user. Note: token in appsettings.json has to be of length 64 bytes or this function will fail
+        /// </summary>
+        /// <param name="user"></param>
+        /// <returns>Token</returns>
         private string CreateToken(User user)
         {
             var claims = new List<Claim>
