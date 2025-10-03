@@ -1,11 +1,8 @@
-﻿using CerealAPI;
-using CerealAPI.src.Data;
-using CerealAPI.src.Models;
+﻿using CerealAPI.src.Models;
 using CerealAPI.src.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
+using Swashbuckle.AspNetCore.Annotations;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -28,34 +25,34 @@ namespace CerealAPI.src.Controllers
 
 
         /// <summary>
-        /// Get endpoint which returns full list or filtered list
+        /// Get endpoint which returns full list or filtered list. It will extract
         /// </summary>
-        /// <param name="query"></param>
         /// <returns></returns>
         [HttpGet()]
-        [ProducesResponseType(200)]
-        public IActionResult Get([FromQuery] string query)
+        [ProducesResponseType(200)]        
+        public IActionResult Get()
         {
-            
-
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
-            }   
-            
+            }
+
+
+            var query = Request.Query;
+
             var queryDict = Utils.ParseQuery(query);
             ICollection<Product> products = null;
 
             if (queryDict.Count == 0)
             {
-                products  = _productRepository.GetAll();
+                products = _productRepository.GetAll();
             }
             else
             {
                 products = _productRepository.GetAllFiltered(queryDict);
             }
 
-            if(products.Count == 0)
+            if (products.Count == 0)
             {
                 return NotFound();
             }

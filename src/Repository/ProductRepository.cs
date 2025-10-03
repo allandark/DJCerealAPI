@@ -94,11 +94,20 @@ namespace CerealAPI.src.Repository
             List<Product> products = null;
             try
             {
+                // Apply filtering
                 products = _context.Products.ToList();
                 foreach (var entry in filter)
                 {
-                    products = Utils.FilterTable[entry.Operator].Invoke(entry, products);
+                    if(entry.Key == "sort")
+                    {
+                        continue;
+                    }
+                    products = ProductFilter.FilterTable[entry.Operator].Invoke(entry, products);
                 }
+                // Only sort the first query  
+                var sort_filter = filter.Where(p => p.Key == "sort").ToList();
+                products = ProductFilter.Sort(products, sort_filter[0]); 
+
             }
             catch (Exception e)
             {

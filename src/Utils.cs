@@ -1,9 +1,10 @@
 ﻿using CerealAPI.src.Data;
 using CerealAPI.src.Models;
 using CerealAPI.src.Repository;
-using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json.Linq;
 
 
 namespace CerealAPI.src
@@ -99,148 +100,86 @@ namespace CerealAPI.src
             "C"
         };
 
-
         /// <summary>
-        /// Dictionary containing the different operations to apply the a List<Product>
+        /// Converts manufacturer query string into database string
         /// </summary>
-        static public Dictionary<string, Func<ProductFilterEntity, List<Product>, List<Product>>> FilterTable =
-            new Dictionary<string, Func<ProductFilterEntity, List<Product>, List<Product>>>
+        /// <param name="manu"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public static string ManufacturerToLetter(string manu)
         {
-            {   "=",
-                (filter, products ) =>
-                {
-                    return products.Where(p =>
-                    {
-                        var prop = typeof(Product).GetProperty(filter.Key);
-                        if (prop == null) return false;
-                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
-                        var value = prop.GetValue(p);
-                        return value != null && value == convertedFilterValue;
-                    }).ToList();
-                }
-            },
-                {   "!=",
-                (filter, products ) =>
-                {
-                    return products.Where(p =>
-                    {
-                        var prop = typeof(Product).GetProperty(filter.Key);
-                        if (prop == null) return false;
-                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
-                        var value = prop.GetValue(p);
-                        return value != null &&  value != convertedFilterValue;
-                    }).ToList();
-                }
-            },
-            {   "<=",
-                (filter, products ) =>
-                {
-                    return products.Where(p =>
-                    {
-                        var prop = typeof(Product).GetProperty(filter.Key);
-                        if (prop == null) return false;
-                        var value = prop.GetValue(p);
-                        if (value == null || filter.Value == null) return false;
-                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
-                        if (value is IComparable comparableValue && convertedFilterValue is IComparable comparableFilter)
-                            return comparableValue.CompareTo(convertedFilterValue) <= 0;
-                        return false;
-                    }).ToList();
-                }
-            },
-            {   "<",
-                (filter, products ) =>
-                {
-                    return products.Where(p =>
-                    {
-                        var prop = typeof(Product).GetProperty(filter.Key);
-                        if (prop == null) return false;
-                        var value = prop.GetValue(p);
-                        if (value == null || filter.Value == null) return false;
-                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
-                        if (value is IComparable comparableValue && convertedFilterValue is IComparable comparableFilter)
-                            return comparableValue.CompareTo(convertedFilterValue) < 0;
-                        return false;
-                    }).ToList();
-                }
-            },
-            {   ">=",
-                (filter, products ) =>
-                {
-                    return products.Where(p =>
-                    {
-                        var prop = typeof(Product).GetProperty(filter.Key);
-                        if (prop == null) return false;
-                        var value = prop.GetValue(p);
-                        if (value == null || filter.Value == null) return false;
-                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
-                        if (value is IComparable comparableValue && convertedFilterValue is IComparable comparableFilter)
-                            return comparableValue.CompareTo(convertedFilterValue) >= 0;
-                        return false;
-                    }).ToList();
-                }
-            },
-            {   ">",
-                (filter, products ) =>
-                {
-                    return products.Where(p =>
-                    {
-                        var prop = typeof(Product).GetProperty(filter.Key);
-                        if (prop == null) return false;
-                        var value = prop.GetValue(p);
-                        if (value == null || filter.Value == null) return false;
-                        var convertedFilterValue = Convert.ChangeType(filter.Value, prop.PropertyType);
-                        if (value is IComparable comparableValue && convertedFilterValue is IComparable comparableFilter)
-                            return comparableValue.CompareTo(convertedFilterValue) > 0;
-                        return false;
-                    }).ToList();
-                }
+            string result = null;
+            if(!ManufacturerStrings.TryGetValue(manu.ToLower(), out result))
+            {
+                throw new Exception(string.Format("Invalid manufacturer: {0}",manu));
             }
-        };
+            return result;
+        }
+
+        public static string TypeToLetter(string type)
+        {
+            string result = null;
+            if (!TypeStrings.TryGetValue(type.ToLower(), out result))
+            {
+                throw new Exception(string.Format("Invalid type: {0}", type));
+            }
+            return result;            
+        }
 
 
         /// <summary>
-        /// Splits the query string into filter elements
+        /// Splits the query into filter elements
         /// </summary>
         /// <param name="query"></param>
-        /// <returns>List of filter entries</returns>
-        static public List<ProductFilterEntity> ParseQuery(string query)
+        /// <returns>List of filter entries. Returns empty list if no query present</returns>
+        static public List<ProductFilterEntity> ParseQuery(IQueryCollection query)
         {
             List<ProductFilterEntity> filter = new List<ProductFilterEntity>();
             if (query == null)
             {
                 return filter;
             }
-            var entreis = query.Split('&');
-            foreach (var entry in entreis)
-            {
-                foreach (var op in Utils.FilterOps)
-                {
-                    if (entry.Contains(op))
-                    {
 
-                        var values = entry.Split(op);
+            foreach(var entry in query)
+            {
+                // Check for assignment operation
+                if (entry.Value.ToString().Length > 0 && entry.Key != "sort")
+                {
+                    var category = "";
+                    if (ProductMemberNames.TryGetValue(entry.Key.ToLower(), out category))
+                    {
+                        var value = entry.Value.ToString();
+                        if (category == "Mfr")
+                        {
+                            value = ManufacturerToLetter(value);
+                        }
+                        else if (category == "Type")
+                        {
+                            value = TypeToLetter(value);
+
+                        }
+                        filter.Add(new ProductFilterEntity(category, "=", value));
+                    }
+                }
+
+                // Check for other operations
+                foreach (var op in FilterOps)
+                {
+
+                    if (entry.Key.Contains(op))
+                    {
+                        var values = entry.Key.Split(op);
                         string category = "";
                         string value = values[1];
                         if (ProductMemberNames.TryGetValue(values[0].ToLower(), out category))
                         {
                             if (category == "Mfr")
                             {
-                                if (!ManufacturerStrings.TryGetValue(values[1].ToLower(), out value))
-                                {
-                                    Console.WriteLine(string.Format("Invalid manufacturer: {0}", value));
-                                    filter.Clear();
-                                    return filter;
-                                }
+                                value = ManufacturerToLetter(value);
                             }
                             else if (category == "Type")
                             {
-                                if (!TypeStrings.TryGetValue(values[1].ToLower(), out value))
-                                {
-                                    Console.WriteLine(string.Format("Invalid type: {0}", value));
-                                    filter.Clear();
-                                    return filter;
-                                }
+                                value = TypeToLetter(value);
 
                             }
                             filter.Add(new ProductFilterEntity(category, op, value));
@@ -251,11 +190,22 @@ namespace CerealAPI.src
                             filter.Clear();
                             return filter;
                         }
-
-
                     }
+                                                               
                 }
 
+                // Check for sort
+                if(entry.Key == "sort")
+                {
+                    string category = "";
+                    var values = entry.Value.ToString().Split("_");
+                    if(ProductMemberNames.TryGetValue(values[0].ToLower(), out category))
+                    {
+                        // If values.Length == 1 Then its ascending order
+                        filter.Add(new ProductFilterEntity(entry.Key, null, category, values.Length == 1));
+                    }
+                    
+                }
             }
             return filter;
         }
